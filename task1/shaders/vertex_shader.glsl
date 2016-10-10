@@ -20,8 +20,9 @@ void main() {
    int i = 0;
 
    for(i = 0; i < MAX_ITERS; i++) {
-        zx = pos.x + zx * zx - zy * zy;
+        float newzx = pos.x + zx * zx - zy * zy;
         zy = pos.y + 2 * zy * zx;
+        zx = newzx;
 
         if (zx * zx + zy * zy > 4) {
             break;
