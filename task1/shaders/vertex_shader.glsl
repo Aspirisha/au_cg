@@ -12,7 +12,7 @@ void main() {
    gl_Position =  MVP * vec4(vertexPosition_modelspace,1);
    vColor = vertexPosition_modelspace;
    vec2 pos = (vec2(vertexPosition_modelspace.x, vertexPosition_modelspace.y) 
-    * IMAGE_SPACE_WIDTH_HEIGHT / 2.0f - IMAGE_SPACE_TRANSLATE) * SCALE;
+    * IMAGE_SPACE_WIDTH_HEIGHT / 2.0f) * SCALE  + IMAGE_SPACE_TRANSLATE;
 
    int MAX_ITERS = 200;
    float zx = 0;

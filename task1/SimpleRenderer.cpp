@@ -100,7 +100,7 @@ void SimpleRenderer::render() {
 }
 
 void SimpleRenderer::onMouseWheel(GLFWwindow *window, double, double yoffset) {
-    scale -= yoffset * mouseSpeed;
+    scale *= pow(1.1, -yoffset);
 }
 
 void SimpleRenderer::onMouseButton(GLFWwindow *window, int button, int action, int mods) {
@@ -120,8 +120,8 @@ void SimpleRenderer::onMousePos(GLFWwindow *window, double x, double y) {
     double dx = x - lastMousePosX;
     double dy = y - lastMousePosY;
 
-    translate.x -= dx * imageSpaceWidth / width;
-    translate.y -= dy * imageSpaceHeight / height;
+    translate.x += dx * scale * imageSpaceWidth / width;
+    translate.y += dy * scale * imageSpaceHeight / height;
 
     lastMousePosX = x;
     lastMousePosY = y;
