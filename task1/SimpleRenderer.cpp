@@ -1,18 +1,17 @@
 #include <GL/glew.h>
 #include <iostream>
-#include <sqltypes.h>
 #include "SimpleRenderer.h"
+#include "ShaderLoader.h"
 
 using namespace std;
 
-UINT uiVertexBuffer; // Here are stored heightmap data (vertices)
-UINT uiIndexBuffer; // And here indices for rendering heightmap
+SimpleRenderer::SimpleRenderer(GLFWwindow* window) : window(window) {
+    programID = LoadShaders("shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
+    locationMatrixID = glGetUniformLocation(programID, "MVP");
+    scaleParamID = glGetUniformLocation(programID, "SCALE");
+    imageSpaceWidthHeightID = glGetUniformLocation(programID, "IMAGE_SPACE_WIDTH_HEIGHT");
+    imageSpaceTranslateID = glGetUniformLocation(programID, "IMAGE_SPACE_TRANSLATE");
 
-UINT uiVertexArray; // One VAO for heightmap
-
-SimpleRenderer::SimpleRenderer(GLFWwindow* window, GLuint programID,
-        GLint locationMatrixID) : window(window), programID(programID),
-locationMatrixID(locationMatrixID) {
     glfwGetFramebufferSize(window, &width, &height);
     initVertices();
     initIndices();
@@ -54,36 +53,25 @@ void SimpleRenderer::initVertices() {
 
 void SimpleRenderer::initIndices() {
     int *ptr = index;
-    cout << "============================\n";
     for (int i = 0; i < TRIANGLES_NUMBER_Y; i++) {
         for (int j = 0; j < TRIANGLES_NUMBER_X + 1; j++) {
             *ptr++ = i * (TRIANGLES_NUMBER_X + 1) + j;
-            cout << *(ptr-1) << " ";
             *ptr++ = (i + 1) * (TRIANGLES_NUMBER_X + 1) + j;
-            cout << *(ptr-1) << " ";
         }
 
         *ptr++ = VERTEX_NUMBER;
-        cout << *(ptr-1) << " \n";
     }
 
 }
 
-SimpleRenderer *SimpleRenderer::getRenderer(GLFWwindow* window, GLuint programID,
-                                            GLuint locationMatrixID) {
+SimpleRenderer *SimpleRenderer::getRenderer(GLFWwindow* window) {
     renderers().push_back(unique_ptr<Renderer>(
-            (Renderer*)new SimpleRenderer(window, programID, locationMatrixID)));
+            (Renderer*)new SimpleRenderer(window)));
     return dynamic_cast<SimpleRenderer*>(renderers().back().get());
 }
 
 void SimpleRenderer::render() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glm::mat4 myScaleMatrix = glm::scale(glm::mat4(1.0f),
-                                           glm::vec3(scale, scale, scale));
-    glm::mat4 myTranslationMatrix = glm::translate(glm::mat4(1.0f),
-                                         translate);
-    glm::mat4 model = myTranslationMatrix * myScaleMatrix;
 
     glm::mat4 view = glm::lookAt(
     glm::vec3(0,0,-2), // the position of your camera, in world space
@@ -94,9 +82,14 @@ void SimpleRenderer::render() {
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float) width / (float)height, 0.1f, 100.0f);
 
 
-    glm::mat4 MVPmatrix = projection * view * model; // Remember : inverted !
+    glm::mat4 MVPmatrix = projection * view; // Remember : inverted !
 
     glUniformMatrix4fv(locationMatrixID, 1, GL_FALSE, &MVPmatrix[0][0]);
+    glUniform1f(scaleParamID, scale);
+
+    glUniform2f(imageSpaceWidthHeightID, imageSpaceWidth, imageSpaceHeight);
+    glUniform2f(imageSpaceTranslateID, translate.x, translate.y);
+
     glUseProgram(programID);
     // Draw the triangle !
     glDrawElements(GL_TRIANGLE_STRIP, (TRIANGLES_NUMBER_X+1)*TRIANGLES_NUMBER_Y*2+TRIANGLES_NUMBER_Y-1, GL_UNSIGNED_INT, 0);
@@ -107,7 +100,31 @@ void SimpleRenderer::render() {
 }
 
 void SimpleRenderer::onMouseWheel(GLFWwindow *window, double, double yoffset) {
-    scale += yoffset * mouseSpeed;
+    scale -= yoffset * mouseSpeed;
+}
+
+void SimpleRenderer::onMouseButton(GLFWwindow *window, int button, int action, int mods) {
+    if (button != GLFW_MOUSE_BUTTON_LEFT)
+        return;
+
+    isMousePressed = action == GLFW_PRESS;
+}
+
+void SimpleRenderer::onMousePos(GLFWwindow *window, double x, double y) {
+    if (!isMousePressed) {
+        lastMousePosY = y;
+        lastMousePosX = x;
+        return;
+    }
+
+    double dx = x - lastMousePosX;
+    double dy = y - lastMousePosY;
+
+    translate.x -= dx * imageSpaceWidth / width;
+    translate.y -= dy * imageSpaceHeight / height;
+
+    lastMousePosX = x;
+    lastMousePosY = y;
 }
 
 void SimpleRenderer::onWindowSizeChanged(GLFWwindow *window, int width,

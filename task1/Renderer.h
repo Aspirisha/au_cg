@@ -24,8 +24,22 @@ public:
         }
     }
 
+    static void dispatchMouseButton(GLFWwindow* window, int button, int action, int mods) {
+        for (auto &r : renderers()) {
+            r->onMouseButton(window, button, action, mods);
+        }
+    }
+
+    static void dispatchMousePos(GLFWwindow *window, double x, double y) {
+        for (auto &r : renderers()) {
+            r->onMousePos(window, x, y);
+        }
+    }
+
     virtual void onMouseWheel(GLFWwindow *window, double xoffset, double yoffset) = 0;
+    virtual void onMouseButton(GLFWwindow *window, int button, int action, int mods) = 0;
     virtual void onWindowSizeChanged(GLFWwindow* window, int width, int height) = 0;
+    virtual void onMousePos(GLFWwindow *window, double x, double y) = 0;
     virtual void render() = 0;
 
 protected:

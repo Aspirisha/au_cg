@@ -52,18 +52,15 @@ int main(int argc, char** argv)
 
     glfwSetScrollCallback(window, Renderer::dispatchMouseWheel);
     glfwSetFramebufferSizeCallback(window, Renderer::framebuffer_size_callback);
-    
+    glfwSetMouseButtonCallback(window, Renderer::dispatchMouseButton);
+    glfwSetCursorPosCallback(window, Renderer::dispatchMousePos);
 
     // Ensure we can capture the escape key being pressed below
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
-
-    GLuint programID = LoadShaders("shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
-
-    GLint MatrixID = glGetUniformLocation(programID, "MVP");
     glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
 
-    SimpleRenderer *renderer = SimpleRenderer::getRenderer(window, programID, MatrixID);
+    SimpleRenderer *renderer = SimpleRenderer::getRenderer(window);
 
     do {
         renderer->render();
