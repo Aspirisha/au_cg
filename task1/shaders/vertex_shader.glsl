@@ -1,12 +1,19 @@
 #version 330 core
 layout(location = 0) in vec3 vertexPosition_modelspace;
 
+
+precision highp float; 
+
 // Values that stay constant for the whole mesh.
 uniform mat4 MVP;
 uniform vec2 IMAGE_SPACE_WIDTH_HEIGHT;
 uniform vec2 IMAGE_SPACE_TRANSLATE;
 uniform float SCALE;
+uniform int MAX_ITERS;
+uniform samplerBuffer TEX_COLORS;
 varying vec3 vColor;
+
+
 void main() {
    // Output position of the vertex, in clip space : MVP * position
    gl_Position =  MVP * vec4(vertexPosition_modelspace,1);
@@ -14,7 +21,6 @@ void main() {
    vec2 pos = (vec2(vertexPosition_modelspace.x, vertexPosition_modelspace.y) 
     * IMAGE_SPACE_WIDTH_HEIGHT / 2.0f) * SCALE  + IMAGE_SPACE_TRANSLATE;
 
-   int MAX_ITERS = 200;
    float zx = 0;
    float zy = 0;
    int i = 0;
@@ -29,10 +35,6 @@ void main() {
         }
    }
 
-   if (i == MAX_ITERS) {
-      vColor = vec3(0, 0, 0);
-   } else {
-      vColor = vec3(float(MAX_ITERS - i) / float(MAX_ITERS), 0, 0);  
-   }
+    vColor = texelFetch(TEX_COLORS, i).rgb;//vec3(float(MAX_ITERS - i) / float(MAX_ITERS), 0, 0);  
 
 }

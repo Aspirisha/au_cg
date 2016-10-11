@@ -11,10 +11,12 @@ SimpleRenderer::SimpleRenderer(GLFWwindow* window) : window(window) {
     scaleParamID = glGetUniformLocation(programID, "SCALE");
     imageSpaceWidthHeightID = glGetUniformLocation(programID, "IMAGE_SPACE_WIDTH_HEIGHT");
     imageSpaceTranslateID = glGetUniformLocation(programID, "IMAGE_SPACE_TRANSLATE");
+    maxIterationsID = glGetUniformLocation(programID, "MAX_ITERS");
 
     glfwGetFramebufferSize(window, &width, &height);
     initVertices();
     initIndices();
+    initTexture();
 
     glGenVertexArrays(1, &uiVertexArray); // Create one VAO
     glGenBuffers(1, &uiVertexBuffer); // One VBO for data
@@ -33,6 +35,8 @@ SimpleRenderer::SimpleRenderer(GLFWwindow* window) : window(window) {
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(index), index, GL_STATIC_DRAW);
     glEnable(GL_PRIMITIVE_RESTART);
     glPrimitiveRestartIndex(VERTEX_NUMBER);
+
+    glUseProgram(programID);
 }
 
 void SimpleRenderer::initVertices() {
@@ -79,7 +83,7 @@ void SimpleRenderer::render() {
     glm::vec3(0,1,0)        // probably glm::vec3(0,1,0), but (0,-1,0) would make you looking upside-down, which can be great too
     );
 
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float) width / (float)height, 0.1f, 100.0f);
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float) width / (float)height, 0.1f, 5.0f);
 
 
     glm::mat4 MVPmatrix = projection * view; // Remember : inverted !
@@ -89,8 +93,8 @@ void SimpleRenderer::render() {
 
     glUniform2f(imageSpaceWidthHeightID, imageSpaceWidth, imageSpaceHeight);
     glUniform2f(imageSpaceTranslateID, translate.x, translate.y);
+    glUniform1i(maxIterationsID, maxIterationsNumber);
 
-    glUseProgram(programID);
     // Draw the triangle !
     glDrawElements(GL_TRIANGLE_STRIP, (TRIANGLES_NUMBER_X+1)*TRIANGLES_NUMBER_Y*2+TRIANGLES_NUMBER_Y-1, GL_UNSIGNED_INT, 0);
 
@@ -133,5 +137,59 @@ void SimpleRenderer::onWindowSizeChanged(GLFWwindow *window, int width,
     this->width = width;
     this->height = height;
 }
+
+void SimpleRenderer::initTexture(bool reset) {
+    const int COLORS_NUM = maxIterationsNumber;
+    const int COMPONENTS = 3;
+    GLfloat colors[COMPONENTS * (COLORS_NUM + 1)];
+    float dc = 1.0f / (COLORS_NUM + 1);
+    for (int i = 0, offset = 0; i < COLORS_NUM; i++) {
+        colors[offset++] = dc * i;
+        colors[offset++] = 1 - dc * i;
+        colors[offset++] = 0;
+    }
+    int idx = COMPONENTS * COLORS_NUM;
+    colors[idx] = colors[idx+1] = colors[idx+2] = 0;
+
+
+    GLuint colorBuffer;
+    glGenBuffers   ( 1, &colorBuffer );
+    glBindBuffer   ( GL_TEXTURE_BUFFER, colorBuffer );
+    glBufferData   ( GL_TEXTURE_BUFFER, sizeof(colors), 0, GL_STATIC_DRAW );  // Alloc
+    glBufferSubData( GL_TEXTURE_BUFFER, 0, sizeof(colors), colors );              // Fill
+
+    if (reset) {
+        glDeleteTextures(1, &textureID);
+    }
+    glGenTextures(1, &textureID);
+    glActiveTexture( GL_TEXTURE0 );
+    glBindTexture(GL_TEXTURE_BUFFER, textureID);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, colorBuffer);
+    glUniform1i( glGetUniformLocation( programID, "TEX_COLORS" ), 0 );
+}
+
+void SimpleRenderer::onKeyEvent(GLFWwindow *window, int key, int scancode,
+                                int action, int mods) {
+    if (action == GLFW_RELEASE)
+        return;
+
+    switch (key) {
+        case GLFW_KEY_EQUAL:
+            maxIterationsNumber += 1;
+            break;
+        case GLFW_KEY_MINUS:
+            if (maxIterationsNumber > 1)
+                maxIterationsNumber -= 1;
+            break;
+        default:
+            return;
+    }
+    initTexture(true);
+    cout << "Using " << maxIterationsNumber << " iterations to test set belonging\n";
+}
+
+
+
+
 
 

@@ -21,7 +21,7 @@ set(GlmIncludeDir ${source_dir}/glm)
 
 pkg_search_module(GLFW REQUIRED glfw3)
 
-include_directories( ${OPENGL_INCLUDE_DIRS}  ${GLUT_INCLUDE_DIRS} ${GlmIncludeDir}
+include_directories( ${OPENGL_INCLUDE_DIRS} ${GlmIncludeDir}
         ${GLFW_INCLUDE_DIRS} )
 add_definitions(-Wall -Wextra -pedantic -O3)
 
@@ -35,7 +35,6 @@ include_directories(
 target_link_libraries(task1
         ${OPENGL_LIBRARIES}
         ${GLFW_LIBRARIES}
-        ${GLUT_LIBRARY}
         ${GLEW_LIBRARY})
 
 add_custom_command(TARGET task1 PRE_BUILD

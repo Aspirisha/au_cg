@@ -4,7 +4,6 @@
 #include <glm/glm.hpp>
 #include <memory>
 
-#include "ShaderLoader.h"
 #include "Renderer.h"
 #include "SimpleRenderer.h"
 
@@ -54,6 +53,7 @@ int main(int argc, char** argv)
     glfwSetFramebufferSizeCallback(window, Renderer::framebuffer_size_callback);
     glfwSetMouseButtonCallback(window, Renderer::dispatchMouseButton);
     glfwSetCursorPosCallback(window, Renderer::dispatchMousePos);
+    glfwSetKeyCallback(window, Renderer::dispatchKeyEvent);
 
     // Ensure we can capture the escape key being pressed below
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);

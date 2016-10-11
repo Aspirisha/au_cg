@@ -14,10 +14,12 @@ public:
     virtual void onWindowSizeChanged(GLFWwindow* window, int width, int height);
     virtual void onMouseButton(GLFWwindow *window, int button, int action, int mods);
     virtual void onMousePos(GLFWwindow *window, double x, double y);
+    virtual void onKeyEvent(GLFWwindow* window, int key, int scancode, int action, int mods);
     virtual void render();
 
     void initVertices();
     void initIndices();
+    void initTexture(bool reset = false);
 private:
     float mouseSpeed = 0.02;
     float scale = 1;
@@ -30,8 +32,10 @@ private:
     GLuint uiIndexBuffer; // And here indices for rendering heightmap
     GLuint uiVertexArray; // One VAO for heightmap
     GLint scaleParamID;
+    GLint maxIterationsID;
     GLint imageSpaceWidthHeightID;
     GLint imageSpaceTranslateID;
+    GLuint textureID;
 
     const float imageSpaceWidth = 4; // complex plain -2 to 2
     const float imageSpaceHeight = 4; // --/--
@@ -45,6 +49,7 @@ private:
     int width = 0;
     int height = 0;
 
+    int maxIterationsNumber = 100;
     enum {
         TRIANGLES_NUMBER_X = 1000,
         TRIANGLES_NUMBER_Y = 1000,
