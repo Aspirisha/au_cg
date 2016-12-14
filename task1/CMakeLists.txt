@@ -5,18 +5,8 @@ INCLUDE(FindPkgConfig)
 find_package(GLUT REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(OpenGL REQUIRED)
-include(ExternalProject)
-ExternalProject_Add(
-        glm
-        PREFIX ${CMAKE_BINARY_DIR}/glm
-        GIT_REPOSITORY https://github.com/g-truc/glm.git
-        CONFIGURE_COMMAND ""
-        BUILD_COMMAND ""
-        INSTALL_COMMAND ""
-        LOG_DOWNLOAD ON
-)
-ExternalProject_Get_Property(glm source_dir)
-set(GlmIncludeDir ${source_dir}/glm)
+find_package(glfw3 REQUIRED)
+
 
 
 pkg_search_module(GLFW REQUIRED glfw3)
@@ -36,15 +26,3 @@ target_link_libraries(task1
         ${OPENGL_LIBRARIES}
         ${GLFW_LIBRARIES}
         ${GLEW_LIBRARY})
-
-add_custom_command(TARGET task1 PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/shaders ${CMAKE_SOURCE_DIR}/build/shaders)
-
-add_custom_command(TARGET task1 PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/shaders ${CMAKE_BINARY_DIR}/shaders)
-
-add_custom_command(TARGET task1 POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-        ${CMAKE_BINARY_DIR}/task1 ${CMAKE_SOURCE_DIR}/build/task1)

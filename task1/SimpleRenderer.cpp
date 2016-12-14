@@ -8,12 +8,13 @@ using namespace std;
 SimpleRenderer::SimpleRenderer(GLFWwindow* window) : window(window) {
     programID = LoadShaders("shaders/vertex_shader.glsl", "shaders/fragment_shader.glsl");
     locationMatrixID = glGetUniformLocation(programID, "MVP");
-    scaleParamID = glGetUniformLocation(programID, "SCALE");
+    transformID = glGetUniformLocation(programID, "TRANSFORM");
     imageSpaceWidthHeightID = glGetUniformLocation(programID, "IMAGE_SPACE_WIDTH_HEIGHT");
-    imageSpaceTranslateID = glGetUniformLocation(programID, "IMAGE_SPACE_TRANSLATE");
     maxIterationsID = glGetUniformLocation(programID, "MAX_ITERS");
 
     glfwGetFramebufferSize(window, &width, &height);
+
+    transform = {1, 0, 0, 0, 1, 0, 0, 0, 1};
     initVertices();
     initIndices();
     initTexture();
@@ -51,7 +52,7 @@ void SimpleRenderer::initVertices() {
 
         vertex[i].x = -1 + dx * col;
         vertex[i].y = 1 - dy * row;
-        vertex[i].z = 0;
+        vertex[i].z = 1;
     }
 }
 
@@ -78,7 +79,7 @@ void SimpleRenderer::render() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glm::mat4 view = glm::lookAt(
-    glm::vec3(0,0,-2), // the position of your camera, in world space
+    glm::vec3(0,0,3), // the position of your camera, in world space
     glm::vec3(0,0,0),   // where you want to look at, in world space
     glm::vec3(0,1,0)        // probably glm::vec3(0,1,0), but (0,-1,0) would make you looking upside-down, which can be great too
     );
@@ -89,10 +90,11 @@ void SimpleRenderer::render() {
     glm::mat4 MVPmatrix = projection * view; // Remember : inverted !
 
     glUniformMatrix4fv(locationMatrixID, 1, GL_FALSE, &MVPmatrix[0][0]);
-    glUniform1f(scaleParamID, scale);
+    glUniformMatrix3fv(transformID, 1, GL_FALSE, &transform[0][0]);
+    //glUniform1f(scaleParamID, scale);
 
     glUniform2f(imageSpaceWidthHeightID, imageSpaceWidth, imageSpaceHeight);
-    glUniform2f(imageSpaceTranslateID, translate.x, translate.y);
+    //glUniform2f(imageSpaceTranslateID, translate.x, translate.y);
     glUniform1i(maxIterationsID, maxIterationsNumber);
 
     // Draw the triangle !
@@ -104,7 +106,21 @@ void SimpleRenderer::render() {
 }
 
 void SimpleRenderer::onMouseWheel(GLFWwindow *window, double, double yoffset) {
-    scale *= pow(1.1, -yoffset);
+    float delta_scale = pow(1.1, -yoffset);
+
+    float deltaWidthHeight = (width - height) / 2.0f;
+    float modelMousePosX = 2 * (lastMousePosX - deltaWidthHeight) / height - 1;
+    float modelMousePosY = 2 * lastMousePosY / height - 1;
+
+    // we flip y coordinate since display y looks down, and we need y to look up
+    glm::vec2 center(modelMousePosX, -modelMousePosY);
+    center = scale * center;
+    scale *= delta_scale;
+
+    transform[0][0] *= delta_scale;
+    transform[1][1] *= delta_scale;
+    transform[2][0] = transform[2][0] * delta_scale + (1 - delta_scale) * (center.x + transform[2][0]);
+    transform[2][1] = transform[2][1] * delta_scale + (1 - delta_scale) * (center.y + transform[2][1]);
 }
 
 void SimpleRenderer::onMouseButton(GLFWwindow *window, int button, int action, int mods) {
@@ -127,6 +143,8 @@ void SimpleRenderer::onMousePos(GLFWwindow *window, double x, double y) {
     translate.x += dx * scale * imageSpaceWidth / width;
     translate.y += dy * scale * imageSpaceHeight / height;
 
+    transform[2][0] += dx * scale * imageSpaceWidth / width;
+    transform[2][1] += dy * scale * imageSpaceHeight / height;
     lastMousePosX = x;
     lastMousePosY = y;
 }

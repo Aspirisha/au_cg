@@ -7,8 +7,7 @@ precision highp float;
 // Values that stay constant for the whole mesh.
 uniform mat4 MVP;
 uniform vec2 IMAGE_SPACE_WIDTH_HEIGHT;
-uniform vec2 IMAGE_SPACE_TRANSLATE;
-uniform float SCALE;
+uniform mat3 TRANSFORM;
 uniform int MAX_ITERS;
 uniform samplerBuffer TEX_COLORS;
 varying vec3 vColor;
@@ -18,9 +17,8 @@ void main() {
    // Output position of the vertex, in clip space : MVP * position
    gl_Position =  MVP * vec4(vertexPosition_modelspace,1);
    vColor = vertexPosition_modelspace;
-   vec2 pos = (vec2(vertexPosition_modelspace.x, vertexPosition_modelspace.y) 
-    * IMAGE_SPACE_WIDTH_HEIGHT / 2.0f) * SCALE  + IMAGE_SPACE_TRANSLATE;
 
+   vec3 pos = TRANSFORM * vertexPosition_modelspace * vec3(IMAGE_SPACE_WIDTH_HEIGHT, 1) / 2;
    float zx = 0;
    float zy = 0;
    int i = 0;

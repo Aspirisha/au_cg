@@ -24,7 +24,7 @@ GLFWwindow *initWindow() {
 
     // Open a window and create its OpenGL context
     GLFWwindow* window; // (In the accompanying source code, this variable is global)
-    const int width = 1024;
+    const int width = 768;
     const int height = 768;
 
     window = glfwCreateWindow(width, height, "Fractal", NULL, NULL);

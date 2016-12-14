@@ -23,7 +23,7 @@ public:
 private:
     float mouseSpeed = 0.02;
     float scale = 1;
-    glm::vec2 translate = glm::vec2(0,0);
+    glm::vec3 translate = {0,0,0};
 
     GLFWwindow* window; // (In the accompanying source code, this variable is global)
     GLuint programID;
@@ -31,11 +31,12 @@ private:
     GLuint uiVertexBuffer; // Here are stored heightmap data (vertices)
     GLuint uiIndexBuffer; // And here indices for rendering heightmap
     GLuint uiVertexArray; // One VAO for heightmap
-    GLint scaleParamID;
+    GLint transformID;
     GLint maxIterationsID;
     GLint imageSpaceWidthHeightID;
-    GLint imageSpaceTranslateID;
     GLuint textureID;
+
+    glm::mat3x3 transform;
 
     const float imageSpaceWidth = 4; // complex plain -2 to 2
     const float imageSpaceHeight = 4; // --/--
