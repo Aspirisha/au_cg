@@ -22,8 +22,6 @@ public:
     void initTexture(bool reset = false);
 private:
     float mouseSpeed = 0.02;
-    float scale = 1;
-    glm::vec3 translate = {0,0,0};
 
     GLFWwindow* window; // (In the accompanying source code, this variable is global)
     GLuint programID;

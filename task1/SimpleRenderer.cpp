@@ -114,13 +114,19 @@ void SimpleRenderer::onMouseWheel(GLFWwindow *window, double, double yoffset) {
 
     // we flip y coordinate since display y looks down, and we need y to look up
     glm::vec2 center(modelMousePosX, -modelMousePosY);
-    center = scale * center;
-    scale *= delta_scale;
+    center = transform[0][0] * center;
 
     transform[0][0] *= delta_scale;
     transform[1][1] *= delta_scale;
-    transform[2][0] = transform[2][0] * delta_scale + (1 - delta_scale) * (center.x + transform[2][0]);
-    transform[2][1] = transform[2][1] * delta_scale + (1 - delta_scale) * (center.y + transform[2][1]);
+
+    // Empirically I figured out it works properly with such correction
+    // Yet I don't understand why on earth the correction is needed at all
+    constexpr float magic_coefficient = 0.826;
+
+    // new transform matrix T' should satisfy condition: T' * center == T * center
+    transform[2] += glm::vec3((1 - delta_scale) * center.x * magic_coefficient,
+                              (1 - delta_scale) * center.y * magic_coefficient,
+                              0);
 }
 
 void SimpleRenderer::onMouseButton(GLFWwindow *window, int button, int action, int mods) {
@@ -131,20 +137,13 @@ void SimpleRenderer::onMouseButton(GLFWwindow *window, int button, int action, i
 }
 
 void SimpleRenderer::onMousePos(GLFWwindow *window, double x, double y) {
-    if (!isMousePressed) {
-        lastMousePosY = y;
-        lastMousePosX = x;
-        return;
+    if (isMousePressed) {
+        double dx = x - lastMousePosX;
+        double dy = y - lastMousePosY;
+
+        transform[2][0] -= dx * transform[0][0] / width;
+        transform[2][1] += dy * transform[0][0] / height;
     }
-
-    double dx = x - lastMousePosX;
-    double dy = y - lastMousePosY;
-
-    translate.x += dx * scale * imageSpaceWidth / width;
-    translate.y += dy * scale * imageSpaceHeight / height;
-
-    transform[2][0] += dx * scale * imageSpaceWidth / width;
-    transform[2][1] += dy * scale * imageSpaceHeight / height;
     lastMousePosX = x;
     lastMousePosY = y;
 }
