@@ -13,7 +13,6 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <assert.h>
-#include <clang/3.5.2/include/stdarg.h>
 
 #ifndef _MSC_VER
    #ifdef __cplusplus
