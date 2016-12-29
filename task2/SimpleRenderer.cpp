@@ -98,17 +98,19 @@ void create_cube_map(GLuint *tex_cube) {
     // generate a cube-map texture to hold all the sides
     glActiveTexture(GL_TEXTURE0);
     glGenTextures(1, tex_cube);
-
     // load each image and copy into a side of the cube-map texture
     for (const auto &cs: cube_sides) {
         load_cube_map_side(*tex_cube, cs.second, cs.first);
     }
+
+    glGenerateTextureMipmap(*tex_cube);
     // format cube map texture
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
 }
 
 void _update_fps_counter (GLFWwindow* window) {
@@ -294,7 +296,7 @@ void SimpleRenderer::update_view() {
 
     // cube-map view matrix has rotation, but not translation
     glUseProgram (cubeProgramID);
-    auto RReversed = inverse(R) *inverse (T)  * cube_mat;
+    auto RReversed = inverse(R) * cube_mat;
     glUniformMatrix4fv (cube_V, 1, GL_FALSE, &RReversed[0][0]);
 }
 
