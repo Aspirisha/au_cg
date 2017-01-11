@@ -244,7 +244,7 @@ void draw_second_pass () {
 	/* virtual camera matrices */
 	glUniformMatrix4fv (lpass_P_loc, 1, GL_FALSE, &projection_mat[0][0]);
 	glUniformMatrix4fv (lpass_V_loc, 1, GL_FALSE, &controller::view_mat[0][0]);
-
+	glFrontFace(GL_CW);
 	for (auto &l : lights) {
 		/* world position */
 		glUniform3f (lpass_L_p_loc, l.pos.x, l.pos.y, l.pos.z);
@@ -256,6 +256,8 @@ void draw_second_pass () {
 		glUniformMatrix4fv (lpass_M_loc, 1, GL_FALSE, &l.light_M[0][0]);
 		glDrawArrays (GL_TRIANGLES, 0, sphere_point_count);
 	}
+
+	glFrontFace(GL_CCW);
 	glUseProgram(bulbs_program);
 	glUniformMatrix4fv (bulb_P_loc, 1, GL_FALSE, &projection_mat[0][0]);
 	glUniformMatrix4fv (bulb_V_loc, 1, GL_FALSE, &controller::view_mat[0][0]);
