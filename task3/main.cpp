@@ -23,6 +23,7 @@ const char * SPHERE_FILE = "models/sphere.obj";
 const char * PLANE_FILE = "models/plane.obj";
 const char * BUNNY_FILE = "models/bunny_with_normals.obj";
 const size_t NUM_LIGHTS = 30;
+const float model_scale = 30;
 
 int g_gl_width = 800;
 int g_gl_height = 800;
@@ -134,12 +135,12 @@ void onKeyEvent(GLFWwindow *window, int key, int scancode,
 			break;
 		case GLFW_KEY_RIGHT:
 		case GLFW_KEY_LEFT: {
-			//model_mat = glm::rotate(glm::mat4{}, direction_sign.at(key) * glm::radians(model_rotation_speed), up_init) * model_mat;
+			g_bunny_M = glm::rotate(glm::mat4{}, direction_sign.at(key) * glm::radians(1.f), up_init) * g_bunny_M;
 			break;
 		}
 		case GLFW_KEY_DOWN:
 		case GLFW_KEY_UP: {
-			//model_mat = glm::rotate(glm::mat4{}, direction_sign.at(key) * glm::radians(model_rotation_speed), rgt_init) * model_mat;
+			g_bunny_M = glm::rotate(glm::mat4{}, direction_sign.at(key) * glm::radians(1.f), rgt_init) * g_bunny_M;
 			break;
 		}
 		default:
@@ -236,8 +237,6 @@ void draw_second_pass () {
 	glDisable (GL_DEPTH_TEST);
 	glDepthMask (GL_FALSE);
 
-	gb.BindForReading();
-
 	glUseProgram (light_pass_program);
 	glBindVertexArray (g_sphere_vao);
 
@@ -256,13 +255,18 @@ void draw_second_pass () {
 		glUniformMatrix4fv (lpass_M_loc, 1, GL_FALSE, &l.light_M[0][0]);
 		glDrawArrays (GL_TRIANGLES, 0, sphere_point_count);
 	}
+	gb.BindForReading();
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Write to default framebuffer
+	glBlitFramebuffer(
+			0, 0, g_gl_width, g_gl_height, 0, 0, g_gl_width, g_gl_height, GL_DEPTH_BUFFER_BIT, GL_NEAREST
+	);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	// drawing bulbs
 	glFrontFace(GL_CCW);
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 	glDisable (GL_BLEND);
 	glEnable (GL_DEPTH_TEST);
 	glDepthMask (GL_TRUE);
-	glClear (GL_DEPTH_BUFFER_BIT);
 	glUseProgram(bulbs_program);
 	glUniformMatrix4fv (bulb_P_loc, 1, GL_FALSE, &projection_mat[0][0]);
 	glUniformMatrix4fv (bulb_V_loc, 1, GL_FALSE, &controller::view_mat[0][0]);
@@ -271,9 +275,6 @@ void draw_second_pass () {
 		glUniform3fv (bulb_color_loc, 1, &l.color_diffuse[0]);
 		glDrawArrays (GL_TRIANGLES, 0, sphere_point_count);
 	}
-	glBindVertexArray (g_bunny_vao);
-	glUniformMatrix4fv (bulb_M_loc, 1, GL_FALSE, &g_bunny_M[0][0]);
-//	glDrawArrays (GL_TRIANGLES, 0, g_bunny_point_count);
 }
 GLFWwindow *initWindow() {
 	if( !glfwInit() ) {
@@ -353,7 +354,7 @@ int main () {
 	plane_model_mat = scale (plane_model_mat, vec3 (200.0f, 1.0f, 200.0f));
 
 	g_bunny_M = translate ({}, vec3 (0.0f, 1.0f, 0.0f));
-	g_bunny_M = scale(g_bunny_M, vec3 (30.0f, 30.0f, 30.0f));
+	g_bunny_M = scale(g_bunny_M, vec3 (model_scale, model_scale, model_scale));
 
 
 	/* load pre-pass shaders that write to the g-buffer */
@@ -396,7 +397,7 @@ int main () {
 
 	float aspect = (float)g_gl_width / (float)g_gl_height;
 	float near = 0.1f;
-	float far = 1000.0f;
+	float far = 100.0f;
 	float fovy = glm::radians(67.0f);
 	projection_mat = perspective (fovy, aspect, near, far);
 	controller::update_view();

@@ -68,14 +68,7 @@ bool GBuffer::Init(unsigned int WindowWidth, unsigned int WindowHeight)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     };
     gen_texture(m_textures + GBUFFER_TEXTURE_TYPE_POSITION, GL_RGB32F, GL_RGB);
-    gen_texture(m_textures + GBUFFER_TEXTURE_TYPE_NORMAL, GL_RGBA16F, GL_RGB);
-
-    GLuint depth_tex;
-    gen_texture(&depth_tex, GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT);
-
-    // attach depth texture to framebuffer
-    glFramebufferTexture2D (
-            GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_tex, 0);
+    gen_texture(m_textures + GBUFFER_TEXTURE_TYPE_NORMAL, GL_RGB16F, GL_RGB);
 
     /* attach textures to framebuffer. the attachment numbers 0 and 1 don't
     automatically corresponed to frament shader output locations 0 and 1, so we
@@ -90,6 +83,13 @@ bool GBuffer::Init(unsigned int WindowWidth, unsigned int WindowHeight)
     /* the first item in this array matches fragment shader output location 0 */
     GLenum draw_bufs[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
     glDrawBuffers (2, draw_bufs);
+
+    GLuint depth_tex;
+    glGenRenderbuffers(1, &depth_tex);
+    glBindRenderbuffer(GL_RENDERBUFFER, depth_tex);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, WindowWidth, WindowHeight);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth_tex);
+    
     /* validate g_fb and return false on error */
     GLenum status = glCheckFramebufferStatus (GL_DRAW_FRAMEBUFFER);
     if (GL_FRAMEBUFFER_COMPLETE != status) {
