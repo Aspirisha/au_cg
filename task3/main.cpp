@@ -258,6 +258,11 @@ void draw_second_pass () {
 	}
 
 	glFrontFace(GL_CCW);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+	glDisable (GL_BLEND);
+	glEnable (GL_DEPTH_TEST);
+	glDepthMask (GL_TRUE);
+	glClear (GL_DEPTH_BUFFER_BIT);
 	glUseProgram(bulbs_program);
 	glUniformMatrix4fv (bulb_P_loc, 1, GL_FALSE, &projection_mat[0][0]);
 	glUniformMatrix4fv (bulb_V_loc, 1, GL_FALSE, &controller::view_mat[0][0]);
