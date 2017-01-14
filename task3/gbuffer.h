@@ -24,10 +24,25 @@
 #define GBUFFER_DIFFUSE_TEXTURE_UNIT  1
 #define GBUFFER_NORMAL_TEXTURE_UNIT   2
 
-class GBuffer
-{
+class ColorGBuffer {
 public:
+	enum GBUFFER_TEXTURE_TYPE {
+		GBUFFER_TEXTURE_TYPE_COLOR,
+		GBUFFER_NUM_TEXTURES
+	};
 
+	bool Init(unsigned int WindowWidth, unsigned int WindowHeight);
+	void BindForWriting();
+	void BindForReading();
+	~ColorGBuffer();
+private:
+/* the framebuffer used for write-to-G-buffer */
+	GLuint g_fb;
+	GLuint m_textures[GBUFFER_NUM_TEXTURES];
+};
+
+class GBuffer {
+public:
 	enum GBUFFER_TEXTURE_TYPE {
 		GBUFFER_TEXTURE_TYPE_POSITION,
 		GBUFFER_TEXTURE_TYPE_NORMAL,

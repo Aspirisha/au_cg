@@ -13,24 +13,33 @@
 
 using namespace glm;
 using namespace std;
-const char * FIRST_PASS_VS = "shaders/first_pass_vs.glsl";
-const char * FIRST_PASS_FS = "shaders/first_pass_fs.glsl";
-const char * SECOND_PASS_VS =  "shaders/second_pass_vs.glsl";
-const char * SECOND_PASS_FS = "shaders/second_pass_fs.glsl";
-const char * BULB_VS = "shaders/bulb_vs.glsl";
-const char * BULB_FS = "shaders/bulb_fs.glsl";
-const char * SPHERE_FILE = "models/sphere.obj";
-const char * PLANE_FILE = "models/plane.obj";
-const char * BUNNY_FILE = "models/bunny_with_normals.obj";
+
+namespace
+{
+const char *FIRST_PASS_VS = "shaders/first_pass_vs.glsl";
+const char *FIRST_PASS_FS = "shaders/first_pass_fs.glsl";
+const char *SECOND_PASS_VS = "shaders/second_pass_vs.glsl";
+const char *SECOND_PASS_FS = "shaders/second_pass_fs.glsl";
+const char *GAMMA_PASS_VS = "shaders/gamma_pass_vs.glsl";
+const char *GAMMA_PASS_FS = "shaders/gamma_pass_fs.glsl";
+const char *BULB_VS = "shaders/bulb_vs.glsl";
+const char *BULB_FS = "shaders/bulb_fs.glsl";
+const char *SPHERE_FILE = "models/sphere.obj";
+const char *PLANE_FILE = "models/plane.obj";
+const char *BUNNY_FILE = "models/bunny_with_normals.obj";
 const size_t NUM_LIGHTS = 30;
 const float model_scale = 30;
 
+float clear_color = 0.0;
 int g_gl_width = 800;
 int g_gl_height = 800;
-GLFWwindow* g_window;
+const float delta_gamma = 0.1f;
+float g_gamma = 2.2f;
+GLFWwindow *g_window;
 
 
-GLuint g_sphere_vao; /* 3d sphere representing light coverage area and corresponfing bulb*/
+GLuint g_sphere_vao;
+/* 3d sphere representing light coverage area and corresponfing bulb*/
 int sphere_point_count;
 std::vector<PointLight> lights;
 
@@ -41,6 +50,8 @@ mat4 plane_model_mat;
 GLuint g_bunny_vao;
 int g_bunny_point_count;
 mat4 g_bunny_M;
+
+GLuint g_quad_vao;
 
 GLuint geometry_pass_program;
 GLint gpass_P_loc;
@@ -56,6 +67,11 @@ GLint lpass_L_d_loc = -1;
 GLint lpass_L_s_loc = -1;
 GLint lpass_p_tex_loc = -1;
 GLint lpass_n_tex_loc = -1;
+GLint lpass_gamma_loc = -1;
+
+GLuint gamma_program;
+GLint gamma_texture_loc = -1;
+GLint gamma_gamma_loc = -1;
 
 GLuint bulbs_program;
 GLint bulb_P_loc = -1;
@@ -64,9 +80,10 @@ GLint bulb_M_loc = -1;
 GLint bulb_color_loc = -1;
 
 GBuffer gb;
+ColorGBuffer cgb;
 
 mat4 projection_mat;
-
+}
 namespace controller
 {
 double last_mouse_y = -1;
@@ -106,10 +123,18 @@ void onMousePos(GLFWwindow *window, double x, double y) {
 	last_mouse_x = x;
 }
 
+void on_gamma_changed() {
+	cout << "now gamma is " << g_gamma << endl;
+	glUseProgram (light_pass_program);
+	glUniform1f(lpass_gamma_loc, g_gamma);
+
+	glUseProgram (gamma_program);
+	glUniform1f(gamma_gamma_loc, g_gamma);
+}
+
 void onKeyEvent(GLFWwindow *window, int key, int scancode,
 				int action, int mods) {
 	const float cam_speed = 0.5;
-	static glm::vec3 fwd_init (0.0f, 0.0f, -1.0f);
 	static glm::vec3 rgt_init (1.0f, 0.0f, 0.0f);
 	static glm::vec3 up_init (0.0f, 1.0f, 0.0f);
 	static unordered_map<int, int> direction_sign = {
@@ -141,6 +166,16 @@ void onKeyEvent(GLFWwindow *window, int key, int scancode,
 		case GLFW_KEY_DOWN:
 		case GLFW_KEY_UP: {
 			g_bunny_M = glm::rotate(glm::mat4{}, direction_sign.at(key) * glm::radians(1.f), rgt_init) * g_bunny_M;
+			break;
+		}
+		case GLFW_KEY_MINUS: {
+			g_gamma -= delta_gamma;
+			on_gamma_changed();
+			break;
+		}
+		case GLFW_KEY_EQUAL: {
+			g_gamma += delta_gamma;
+			on_gamma_changed();
 			break;
 		}
 		default:
@@ -193,6 +228,26 @@ GLuint load_obj_into_array(const char *fileName, int &pointCount) {
 	return vao;
 }
 
+GLuint createQuad() {
+	float quad_vertices[] =  {-1.0, -1.0, 1.0, -1.0, -1.0, 1.0,-1.0, 1.0, 1.0, -1.0, 1.0, 1.0};
+
+	GLuint points_vbo;
+	GLuint vao;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	glGenBuffers(1, &points_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
+	glBufferData(
+			GL_ARRAY_BUFFER, 12 * sizeof(GLfloat), quad_vertices,
+			GL_STATIC_DRAW
+	);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+	glEnableVertexAttribArray(0);
+
+	return vao;
+}
+
 /* the first pass draws
 * pixel positions
 * pixel normals
@@ -226,9 +281,11 @@ void draw_first_pass () {
 * retrieves pixel positions, normals, and depths
 */
 void draw_second_pass () {
-	glBindFramebuffer (GL_FRAMEBUFFER, 0);
+	//glBindFramebuffer (GL_FRAMEBUFFER, 0);
+	gb.BindForReading();
+	cgb.BindForWriting();
 	/* clear to any colour */
-	glClearColor (0.2, 0.2, 0.2, 1.0f);
+	glClearColor (clear_color, clear_color, clear_color, 1.0f);
 	glClear (GL_COLOR_BUFFER_BIT);
 
 	glEnable (GL_BLEND); // --- could reject background frags!
@@ -255,19 +312,29 @@ void draw_second_pass () {
 		glUniformMatrix4fv (lpass_M_loc, 1, GL_FALSE, &l.light_M[0][0]);
 		glDrawArrays (GL_TRIANGLES, 0, sphere_point_count);
 	}
+	glFrontFace(GL_CCW);
+	glBindFramebuffer (GL_FRAMEBUFFER, 0);
 	gb.BindForReading();
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Write to default framebuffer
 	glBlitFramebuffer(
 			0, 0, g_gl_width, g_gl_height, 0, 0, g_gl_width, g_gl_height, GL_DEPTH_BUFFER_BIT, GL_NEAREST
 	);
+
+	glDisable (GL_BLEND);
+	cgb.BindForReading();
+
+	glUseProgram(gamma_program);
+	glBindVertexArray(g_quad_vao);
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	// drawing bulbs
-	glFrontFace(GL_CCW);
-	glDisable (GL_BLEND);
 	glEnable (GL_DEPTH_TEST);
 	glDepthMask (GL_TRUE);
 	glUseProgram(bulbs_program);
+	glBindVertexArray (g_sphere_vao);
 	glUniformMatrix4fv (bulb_P_loc, 1, GL_FALSE, &projection_mat[0][0]);
 	glUniformMatrix4fv (bulb_V_loc, 1, GL_FALSE, &controller::view_mat[0][0]);
 	for (auto &l : lights) {
@@ -345,6 +412,7 @@ int main () {
 	/* initialise GL context and window */
 	g_window = initWindow();
 	gb.Init(g_gl_width, g_gl_height);
+	cgb.Init(g_gl_width, g_gl_height);
 	glfwSetCursorPosCallback(g_window, controller::onMousePos);
 	glfwSetKeyCallback(g_window, controller::onKeyEvent);
 	/* initialise framebuffer and G-buffer */
@@ -372,6 +440,11 @@ int main () {
 	lpass_L_s_loc = glGetUniformLocation (light_pass_program, "ls");
 	lpass_p_tex_loc = glGetUniformLocation (light_pass_program, "p_tex");
 	lpass_n_tex_loc = glGetUniformLocation (light_pass_program, "n_tex");
+	lpass_gamma_loc = glGetUniformLocation(light_pass_program, "gamma");
+
+	gamma_program = LoadShaders (GAMMA_PASS_VS, GAMMA_PASS_FS);
+	gamma_texture_loc = glGetUniformLocation (gamma_program, "Texture");
+	gamma_gamma_loc = glGetUniformLocation (gamma_program, "Gamma");
 
 	bulbs_program = LoadShaders (BULB_VS, BULB_FS);
 	bulb_P_loc = glGetUniformLocation (bulbs_program, "P");
@@ -382,11 +455,16 @@ int main () {
 	glUseProgram (light_pass_program);
 	glUniform1i (lpass_p_tex_loc, 0);
 	glUniform1i (lpass_n_tex_loc, 1);
+	glUniform1f(lpass_gamma_loc, g_gamma);
 
+	glUseProgram (gamma_program);
+	glUniform1i (gamma_texture_loc, 0);
+	glUniform1f(gamma_gamma_loc, g_gamma);
 
 	g_sphere_vao = load_obj_into_array(SPHERE_FILE, sphere_point_count);
 	g_plane_vao = load_obj_into_array(PLANE_FILE, plane_point_count);
 	g_bunny_vao = load_obj_into_array(BUNNY_FILE, g_bunny_point_count);
+	g_quad_vao = createQuad();
 
 	/* light positions and matrices */
 	const size_t amplitude = 40;

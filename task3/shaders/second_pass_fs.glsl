@@ -1,13 +1,14 @@
 #version 410
 
 uniform mat4 V;
+uniform float gamma;
 uniform sampler2D p_tex;
 uniform sampler2D n_tex;
 uniform vec3 ls;
 uniform vec3 ld;
 uniform vec3 lp;
 
-out vec4 frag_colour;
+layout (location = 0) out vec4 frag_colour;
 
 vec3 kd = vec3 (0.9, 0.9, 0.9);
 vec3 ks = vec3 (0.5, 0.5, 0.5);
@@ -31,11 +32,10 @@ vec3 phong (in vec3 op_eye, in vec3 n_eye) {
 	float specular_factor = pow (dot_prod_specular, specular_exponent);
 	vec3 Is = ls * ks * specular_factor; // final specular intensity
 	
-	float dist_2d = max (0.0, 1.0 - distance (lp_eye, op_eye) / 10.0);
+	float dist_2d = max (0.0, 1.0 - distance (lp_eye, op_eye) / 20.0);
 	float atten_factor =  dist_2d;
 	
 //	return vec3(dist_2d,dist_2d,dist_2d);
-	
 	return (Id + Is) * atten_factor;
 }
 
@@ -55,6 +55,6 @@ void main () {
 	vec4 n_texel = texture (n_tex, st);
 	
 	frag_colour.rgb = phong (p_texel.rgb, normalize (n_texel.rgb));
-	
+	frag_colour.rgb = pow(frag_colour.rgb, vec3(gamma));
 	//	frag_colour.rgb = p_texel.rgb;
 }
