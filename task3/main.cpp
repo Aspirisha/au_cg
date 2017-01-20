@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include "PointLight.h"
 #include "gbuffer.h"
+#include "stb_image/stb_image.h"
 
 using namespace glm;
 using namespace std;
@@ -18,6 +19,8 @@ namespace
 {
 const char *FIRST_PASS_VS = "shaders/first_pass_vs.glsl";
 const char *FIRST_PASS_FS = "shaders/first_pass_fs.glsl";
+const char *FIRST_PASS_PLANE_VS = "shaders/first_pass_plane_vs.glsl";
+const char *FIRST_PASS_PLANE_FS = "shaders/first_pass_plane_fs.glsl";
 const char *SECOND_PASS_VS = "shaders/second_pass_vs.glsl";
 const char *SECOND_PASS_FS = "shaders/second_pass_fs.glsl";
 const char *GAMMA_PASS_VS = "shaders/gamma_pass_vs.glsl";
@@ -27,6 +30,9 @@ const char *BULB_FS = "shaders/bulb_fs.glsl";
 const char *SPHERE_FILE = "models/sphere.obj";
 const char *PLANE_FILE = "models/plane.obj";
 const char *BUNNY_FILE = "models/bunny_with_normals.obj";
+
+const char *PLANE_NORMAL_TEX_FILE = "textures/normals.jpg";
+
 const size_t NUM_LIGHTS = 30;
 const float model_scale = 30;
 
@@ -46,6 +52,7 @@ std::vector<PointLight> lights;
 GLuint g_plane_vao;
 int plane_point_count;
 mat4 plane_model_mat;
+GLuint normal_tex;
 
 GLuint g_bunny_vao;
 int g_bunny_point_count;
@@ -53,10 +60,16 @@ mat4 g_bunny_M;
 
 GLuint g_quad_vao;
 
-GLuint geometry_pass_program;
+GLuint geometry_pass_program_model;
 GLint gpass_P_loc;
 GLint gpass_V_loc;
 GLint gpass_M_loc;
+
+GLuint geometry_pass_program_plane;
+GLint gppass_P_loc;
+GLint gppass_V_loc;
+GLint gppass_M_loc;
+GLint gppass_normalmap_loc;
 
 GLuint light_pass_program;
 GLint lpass_P_loc = -1;
@@ -221,6 +234,17 @@ GLuint load_obj_into_array(const char *fileName, int &pointCount) {
 		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 		glEnableVertexAttribArray(1);
 	}
+	if (NULL != vt) {
+		GLuint tex_vbo;
+		glGenBuffers(1, &tex_vbo);
+		glBindBuffer(GL_ARRAY_BUFFER, tex_vbo);
+		glBufferData(
+				GL_ARRAY_BUFFER, 2 * pointCount * sizeof(GLfloat), vt,
+				GL_STATIC_DRAW
+		);
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+		glEnableVertexAttribArray(2);
+	}
 
 	delete[] vp;
 	delete[] vn;
@@ -262,18 +286,23 @@ void draw_first_pass () {
 	glEnable (GL_DEPTH_TEST);
 	glDepthMask (GL_TRUE);
 
-	glUseProgram (geometry_pass_program);
+	glUseProgram (geometry_pass_program_plane);
 	glBindVertexArray (g_plane_vao);
 
 	/* virtual camera matrices */
-	glUniformMatrix4fv (gpass_P_loc, 1, GL_FALSE, &projection_mat[0][0]);
-	glUniformMatrix4fv (gpass_V_loc, 1, GL_FALSE, &controller::view_mat[0][0]);
+	glUniformMatrix4fv (gppass_P_loc, 1, GL_FALSE, &projection_mat[0][0]);
+	glUniformMatrix4fv (gppass_V_loc, 1, GL_FALSE, &controller::view_mat[0][0]);
+	glUniformMatrix4fv (gppass_M_loc, 1, GL_FALSE, &plane_model_mat[0][0]);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, normal_tex);
 
-	glUniformMatrix4fv (gpass_M_loc, 1, GL_FALSE, &plane_model_mat[0][0]);
 	glDrawArrays (GL_TRIANGLES, 0, plane_point_count);
 
-	glBindVertexArray (g_bunny_vao);
+	glUseProgram (geometry_pass_program_model);
+	glUniformMatrix4fv (gpass_P_loc, 1, GL_FALSE, &projection_mat[0][0]);
+	glUniformMatrix4fv (gpass_V_loc, 1, GL_FALSE, &controller::view_mat[0][0]);
 	glUniformMatrix4fv (gpass_M_loc, 1, GL_FALSE, &g_bunny_M[0][0]);
+	glBindVertexArray (g_bunny_vao);
 	glDrawArrays (GL_TRIANGLES, 0, g_bunny_point_count);
 }
 
@@ -342,6 +371,42 @@ void draw_second_pass () {
 		glDrawArrays (GL_TRIANGLES, 0, sphere_point_count);
 	}
 }
+
+bool load_texture(const string &file_name) {
+	int x, y, n;
+	int force_channels = 4;
+	float *image_data = stbi_loadf(file_name.c_str(), &x, &y, &n,
+										  force_channels);
+	if (!image_data) {
+		fprintf(stderr, "ERROR: could not load %s\n", file_name);
+		return false;
+	}
+	// non-power-of-2 dimensions check
+	if ((x & (x - 1)) != 0 || (y & (y - 1)) != 0) {
+		fprintf(
+				stderr, "WARNING: image %s is not power-of-2 dimensions\n",
+				file_name
+		);
+	}
+
+	cout << image_data[0] << " " << image_data[1] <<" " <<  image_data[2] << "\n";
+	cout << image_data[3] << " " << image_data[4] <<" " <<  image_data[5] << "\n";
+	// copy image data into 'target' side of cube map
+	glTexImage2D(
+			GL_TEXTURE_2D,
+			0,
+			GL_RGBA,
+			x,
+			y,
+			0,
+			GL_RGBA,
+			GL_FLOAT,
+			image_data
+	);
+	free(image_data);
+	return true;
+}
+
 GLFWwindow *initWindow() {
 	if( !glfwInit() ) {
 		cerr << "Failed to initialize GLFW\n";
@@ -418,17 +483,33 @@ int main () {
 
 	/* object positions and matrices */
 	plane_model_mat = translate ({}, vec3 (0.0f, -2.0f, 0.0f));
-	plane_model_mat = scale (plane_model_mat, vec3 (200.0f, 1.0f, 200.0f));
+	plane_model_mat = scale (plane_model_mat, vec3 (20.0f, 1.0f, 20.0f));
+	glGenTextures(1, &normal_tex);
+	glBindTexture(GL_TEXTURE_2D, normal_tex);
+	load_texture(PLANE_NORMAL_TEX_FILE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glGenerateMipmap(GL_TEXTURE_2D);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+
 
 	g_bunny_M = translate ({}, vec3 (0.0f, 1.0f, 0.0f));
 	g_bunny_M = scale(g_bunny_M, vec3 (model_scale, model_scale, model_scale));
 
 
 	/* load pre-pass shaders that write to the g-buffer */
-	geometry_pass_program = LoadShaders (FIRST_PASS_VS, FIRST_PASS_FS);
-	gpass_P_loc = glGetUniformLocation (geometry_pass_program, "P");
-	gpass_V_loc = glGetUniformLocation (geometry_pass_program, "V");
-	gpass_M_loc = glGetUniformLocation (geometry_pass_program, "M");
+	geometry_pass_program_model = LoadShaders (FIRST_PASS_VS, FIRST_PASS_FS);
+	gpass_P_loc = glGetUniformLocation (geometry_pass_program_model, "P");
+	gpass_V_loc = glGetUniformLocation (geometry_pass_program_model, "V");
+	gpass_M_loc = glGetUniformLocation (geometry_pass_program_model, "M");
+
+	geometry_pass_program_plane = LoadShaders(FIRST_PASS_PLANE_VS, FIRST_PASS_PLANE_FS);
+	gppass_P_loc = glGetUniformLocation (geometry_pass_program_plane, "P");
+	gppass_V_loc = glGetUniformLocation (geometry_pass_program_plane, "V");
+	gppass_M_loc = glGetUniformLocation (geometry_pass_program_plane, "M");
+	gppass_normalmap_loc = glGetUniformLocation(geometry_pass_program_plane, "normal_map");
+
 	/* load screen-space pass shaders that read from the g-buffer */
 	light_pass_program = LoadShaders (SECOND_PASS_VS, SECOND_PASS_FS);
 	lpass_P_loc = glGetUniformLocation (light_pass_program, "P");
@@ -450,6 +531,9 @@ int main () {
 	bulb_V_loc = glGetUniformLocation (bulbs_program, "V");
 	bulb_M_loc = glGetUniformLocation (bulbs_program, "M");
 	bulb_color_loc = glGetUniformLocation (bulbs_program, "color");
+
+	glUseProgram (geometry_pass_program_plane);
+	glUniform1i(gppass_normalmap_loc, 0);
 
 	glUseProgram (light_pass_program);
 	glUniform1i (lpass_p_tex_loc, 0);
